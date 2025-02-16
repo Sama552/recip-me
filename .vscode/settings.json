@@ -3,7 +3,8 @@
 	"editor.defaultFormatter": "esbenp.prettier-vscode",
 	"editor.formatOnPaste": true,
 	"editor.codeActionsOnSave": {
-		"source.fixAll.eslint": "always"
+		"source.fixAll.eslint": "explicit",
+		"source.organizeImports": "explicit"
 	},
 	"prettier.requireConfig": true,
 	"prettier.useEditorConfig": false,
@@ -27,5 +28,7 @@
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"files.autoSave": "onFocusChange",
-	"typescript.tsdk": "node_modules/typescript/lib"
+	"typescript.tsdk": "node_modules/typescript/lib",
+	"editor.tabSize": 2,
+	"editor.insertSpaces": false
 }
