@@ -8,7 +8,11 @@
 		"lint:fix": "eslint . --ext .ts,.tsx --fix",
 		"format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
 		"format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
-		"type-check": "tsc --noEmit"
+		"type-check": "tsc --noEmit",
+		"db:reset": "supabase db reset",
+		"db:push": "supabase db push",
+		"db:pull": "supabase db pull",
+		"db:generate-types": "supabase gen types typescript --local > types/supabase.ts"
 	},
 	"dependencies": {
 		"@radix-ui/react-checkbox": "^1.1.1",
