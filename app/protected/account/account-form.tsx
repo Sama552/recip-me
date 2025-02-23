@@ -97,7 +97,6 @@ export function AccountForm({ user, profile }: Props) {
 					</div>
 					<div>
 						<h2 className="text-lg font-medium">{user.email}</h2>
-						<p className="text-sm text-muted-foreground">Update your profile picture</p>
 					</div>
 				</div>
 			</div>
