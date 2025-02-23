@@ -2,8 +2,9 @@ import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import RecipeForm from '../../RecipeForm'
 
-export default async function EditRecipePage({ params }: { params: { id: string } }) {
+export default async function EditRecipePage({ params }: { params: Promise<{ id: string }> }) {
 	const supabase = await createClient()
+	const { id } = await params
 
 	const {
 		data: { user },
@@ -13,11 +14,7 @@ export default async function EditRecipePage({ params }: { params: { id: string 
 	}
 
 	// Check if user owns this recipe
-	const { data: recipe } = await supabase
-		.from('recipes')
-		.select('user_id')
-		.eq('id', params.id)
-		.single()
+	const { data: recipe } = await supabase.from('recipes').select('user_id').eq('id', id).single()
 
 	if (!recipe || recipe.user_id !== user.id) {
 		redirect('/')
@@ -32,7 +29,7 @@ export default async function EditRecipePage({ params }: { params: { id: string 
 	return (
 		<main className="flex-1 flex flex-col items-center min-h-[60vh] px-4 py-8 w-full max-w-3xl mx-auto">
 			<h1 className="text-3xl font-bold mb-8">Edit Recipe</h1>
-			<RecipeForm recipeId={params.id} existingTags={existingTags || []} />
+			<RecipeForm recipeId={id} existingTags={existingTags || []} />
 		</main>
 	)
 }

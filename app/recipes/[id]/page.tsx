@@ -14,8 +14,9 @@ type RecipeWithDetails = Database['public']['Tables']['recipes']['Row'] & {
 	}>
 }
 
-export default async function RecipePage({ params }: { params: { id: string } }) {
+export default async function RecipePage({ params }: { params: Promise<{ id: string }> }) {
 	const supabase = await createClient()
+	const { id } = await params
 
 	const {
 		data: { user },
@@ -44,7 +45,7 @@ export default async function RecipePage({ params }: { params: { id: string } })
 			)
 		`
 		)
-		.eq('id', params.id)
+		.eq('id', id)
 		.single()
 
 	if (error) {
@@ -68,7 +69,7 @@ export default async function RecipePage({ params }: { params: { id: string } })
 					Back to Recipes
 				</Link>
 				{canEdit && (
-					<Link href={`/recipes/${params.id}/edit`}>
+					<Link href={`/recipes/${id}/edit`}>
 						<Button variant="outline" className="flex items-center gap-2">
 							<Pencil size={16} />
 							Edit Recipe
