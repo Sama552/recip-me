@@ -1,5 +1,6 @@
 'use client'
 
+import RecipeUrlImport from '@/app/components/RecipeUrlImport'
 import {
 	IngredientFormData,
 	InstructionFormData,
@@ -22,6 +23,7 @@ import {
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 interface RecipeFormProps {
 	existingTags: Tag[]
@@ -31,6 +33,7 @@ interface RecipeFormProps {
 export default function RecipeForm({ existingTags, recipe }: RecipeFormProps) {
 	const router = useRouter()
 	const [isSubmitting, setIsSubmitting] = useState(false)
+	// const { toast } = useToast()
 
 	// Form state
 	const [title, setTitle] = useState('')
@@ -223,8 +226,70 @@ export default function RecipeForm({ existingTags, recipe }: RecipeFormProps) {
 		}
 	}
 
+	const handleImportSuccess = (importedRecipe: Partial<Recipe>) => {
+		// Update form state with imported data
+		setTitle(importedRecipe.title || '')
+		setDescription(importedRecipe.description || '')
+		setPrepTime(importedRecipe.prep_time?.toString() || '')
+		setCookTime(importedRecipe.cook_time?.toString() || '')
+		setServings(importedRecipe.servings?.toString() || '')
+
+		// Set ingredients
+		if (importedRecipe.ingredients?.length) {
+			setIngredients(
+				importedRecipe.ingredients.map(ing => ({
+					amount: ing.amount?.toString() || '',
+					unit: ing.unit || '',
+					name: ing.name,
+					notes: ing.notes || '',
+				}))
+			)
+		}
+
+		// Set instructions
+		if (importedRecipe.instructions?.length) {
+			setInstructions(importedRecipe.instructions.map(inst => inst.description))
+		}
+
+		// Handle suggested tags (not working yet)
+		// if (importedRecipe.suggested_tags?.length) {
+		// 	const matchedTags = existingTags.filter(tag =>
+		// 		importedRecipe.suggested_tags?.includes(tag.name.toLowerCase())
+		// 	)
+		// 	setSelectedTags(matchedTags)
+		// }
+
+		toast.success('Recipe Imported', {
+			description: 'Recipe has been imported successfully. Please review before saving.',
+		})
+	}
+
+	const handleImportError = (error: string) => {
+		toast.error('Import Failed', {
+			description: error,
+		})
+	}
+
 	return (
 		<form onSubmit={handleSubmit} className="w-full space-y-6">
+			{!recipe && (
+				<div className="space-y-4">
+					<h2 className="text-lg font-semibold">Import Recipe</h2>
+					<RecipeUrlImport
+						onImportSuccess={handleImportSuccess}
+						onImportError={handleImportError}
+					/>
+					<div className="relative">
+						<div className="absolute inset-0 flex items-center">
+							<span className="w-full border-t" />
+						</div>
+						<div className="relative flex justify-center text-xs uppercase">
+							<span className="bg-background px-2 text-muted-foreground">or enter manually</span>
+						</div>
+					</div>
+				</div>
+			)}
+
 			<div className="space-y-2">
 				<Label htmlFor="title">Title</Label>
 				<Input id="title" value={title} onChange={e => setTitle(e.target.value)} required />
