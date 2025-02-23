@@ -1,6 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { Readability } from '@mozilla/readability'
-import * as cheerio from 'cheerio'
 import { JSDOM } from 'jsdom'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -52,26 +51,7 @@ async function extractContent(url: string) {
 		})
 		const html = await response.text()
 
-		// Try Schema.org recipe markup first
-		const $ = cheerio.load(html)
-		const jsonLd = $('script[type="application/ld+json"]')
-		const schemas = jsonLd
-			.map((_, el) => {
-				try {
-					return JSON.parse($(el).html() || '')
-				} catch {
-					return null
-				}
-			})
-			.get()
-
-		const recipeSchema = schemas.find(schema => schema && schema['@type'] === 'Recipe')
-
-		if (recipeSchema) {
-			return { content: JSON.stringify(recipeSchema), type: 'schema' }
-		}
-
-		// Fallback to Readability
+		// Readability
 		const dom = new JSDOM(html)
 		const reader = new Readability(dom.window.document)
 		const article = reader.parse()
