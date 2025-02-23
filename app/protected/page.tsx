@@ -38,8 +38,8 @@ export default async function Home() {
 		.select(
 			`
 			*,
-			recipe_tags!inner (
-				tags!inner (
+			recipe_tags (
+				tags (
 					id,
 					name
 				)
@@ -47,8 +47,6 @@ export default async function Home() {
 		`
 		)
 		.order('created_at', { ascending: false })
-
-	console.log(recipes)
 
 	if (!recipes) {
 		return (

@@ -1,7 +1,8 @@
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Database } from '@/supabase/types/supabase'
 import { createClient } from '@/utils/supabase/server'
-import { ArrowLeft, Clock, Globe, Users } from 'lucide-react'
+import { ArrowLeft, Clock, Globe, Pencil, Users } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -15,6 +16,10 @@ type RecipeWithDetails = Database['public']['Tables']['recipes']['Row'] & {
 
 export default async function RecipePage({ params }: { params: { id: string } }) {
 	const supabase = await createClient()
+
+	const {
+		data: { user },
+	} = await supabase.auth.getUser()
 
 	const { data: recipe, error } = await supabase
 		.from('recipes')
@@ -31,8 +36,8 @@ export default async function RecipePage({ params }: { params: { id: string } })
 				step_number,
 				description
 			),
-			recipe_tags!inner (
-				tags!inner (
+			recipe_tags (
+				tags (
 					id,
 					name
 				)
@@ -50,15 +55,27 @@ export default async function RecipePage({ params }: { params: { id: string } })
 		notFound()
 	}
 
+	const canEdit = user?.id === recipe.user_id
+
 	return (
 		<div className="max-w-4xl mx-auto px-4 py-8">
-			<Link
-				href="/"
-				className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8"
-			>
-				<ArrowLeft size={16} />
-				Back to Recipes
-			</Link>
+			<div className="flex justify-between items-start mb-8">
+				<Link
+					href="/"
+					className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
+				>
+					<ArrowLeft size={16} />
+					Back to Recipes
+				</Link>
+				{canEdit && (
+					<Link href={`/recipes/${params.id}/edit`}>
+						<Button variant="outline" className="flex items-center gap-2">
+							<Pencil size={16} />
+							Edit Recipe
+						</Button>
+					</Link>
+				)}
+			</div>
 
 			<div className="space-y-8">
 				<div>
