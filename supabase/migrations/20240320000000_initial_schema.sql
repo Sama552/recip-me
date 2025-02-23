@@ -132,14 +132,6 @@ create policy "Users can modify instructions of their recipes"
         and recipes.user_id = auth.uid()
     ));
 
--- Tags are public but can only be modified by recipe owners
-create policy "Everyone can view tags"
-    on tags for select
-    to public;
-
-create policy "Users can create tags when they own the recipe"
-    on tags for insert
-    with check (true);  -- We'll control this through the application logic
 
 -- Recipe tags policies
 create policy "Users can view recipe tags"
@@ -150,11 +142,33 @@ create policy "Users can view recipe tags"
         and recipes.user_id = auth.uid()
     ));
 
-create policy "Users can modify recipe tags of their recipes"
-    on recipe_tags for all
+create policy "Enable read access for all users"
+    on tags
+    to public
+    using (true);
+    
+-- Create separate policies for insert, update, and delete
+create policy "Users can insert recipe tags"
+    on recipe_tags for insert
+    with check (exists (
+        select 1 from recipes
+        where recipes.id = recipe_id
+        and recipes.user_id = auth.uid()
+    ));
+
+create policy "Users can update recipe tags"
+    on recipe_tags for update
     using (exists (
         select 1 from recipes
-        where recipes.id = recipe_tags.recipe_id
+        where recipes.id = recipe_id
+        and recipes.user_id = auth.uid()
+    ));
+
+create policy "Users can delete recipe tags"
+    on recipe_tags for delete
+    using (exists (
+        select 1 from recipes
+        where recipes.id = recipe_id
         and recipes.user_id = auth.uid()
     ));
 
