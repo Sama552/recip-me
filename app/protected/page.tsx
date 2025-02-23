@@ -1,8 +1,9 @@
+import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/utils/supabase/server'
-import { InfoIcon } from 'lucide-react'
-import { redirect } from 'next/navigation'
+import { Clock, Users } from 'lucide-react'
+import Link from 'next/link'
 
-export default async function ProtectedPage() {
+export default async function Home() {
 	const supabase = await createClient()
 
 	const {
@@ -10,26 +11,103 @@ export default async function ProtectedPage() {
 	} = await supabase.auth.getUser()
 
 	if (!user) {
-		return redirect('/sign-in')
+		return (
+			<main className="flex-1 flex flex-col items-center justify-center min-h-[60vh] px-4">
+				<h1 className="text-4xl font-bold mb-8">Welcome to Recip-me</h1>
+				<div className="flex gap-4">
+					<Link
+						href="/sign-in"
+						className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+					>
+						Sign In
+					</Link>
+					<Link
+						href="/sign-up"
+						className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90"
+					>
+						Sign Up
+					</Link>
+				</div>
+			</main>
+		)
+	}
+
+	// Fetch user's recipes with their tags
+	const { data: recipes } = await supabase
+		.from('recipes')
+		.select(
+			`
+			*,
+			recipe_tags!inner (
+				tags!inner (
+					id,
+					name
+				)
+			)
+		`
+		)
+		.order('created_at', { ascending: false })
+
+	console.log(recipes)
+
+	if (!recipes) {
+		return (
+			<main className="flex-1 flex flex-col items-center justify-center min-h-[60vh] px-4">
+				<h1 className="text-2xl font-bold mb-4">No recipes found</h1>
+				<Link
+					href="/recipes/new"
+					className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+				>
+					Create Your First Recipe
+				</Link>
+			</main>
+		)
 	}
 
 	return (
-		<div className="flex-1 w-full flex flex-col gap-12">
-			<div className="w-full">
-				<div className="bg-accent text-sm p-3 px-5 rounded-md text-foreground flex gap-3 items-center">
-					<InfoIcon size="16" strokeWidth={2} />
-					This is a protected page that you can only see as an authenticated user
-				</div>
+		<main className="flex-1 flex flex-col items-center min-h-[60vh] px-4 py-8 w-full max-w-7xl mx-auto">
+			<div className="w-full flex justify-between items-center mb-8">
+				<h1 className="text-3xl font-bold">Your Recipes</h1>
+				<Link
+					href="/recipes/new"
+					className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+				>
+					Add New Recipe
+				</Link>
 			</div>
-			<div className="flex flex-col gap-2 items-start">
-				<h2 className="font-bold text-2xl mb-4">Your user details</h2>
-				<pre className="text-xs font-mono p-3 rounded border max-h-32 overflow-auto">
-					{JSON.stringify(user, null, 2)}
-				</pre>
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+				{recipes.map(recipe => (
+					<Link
+						key={recipe.id}
+						href={`/recipes/${recipe.id}`}
+						className="group border rounded-lg p-6 hover:border-primary transition-colors"
+					>
+						<h2 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">
+							{recipe.title}
+						</h2>
+						<p className="text-muted-foreground text-sm mb-4 line-clamp-2">{recipe.description}</p>
+						<div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+							<div className="flex items-center gap-1">
+								<Clock size={16} />
+								<span>
+									{recipe.prep_time} + {recipe.cook_time}
+								</span>
+							</div>
+							<div className="flex items-center gap-1">
+								<Users size={16} />
+								<span>Serves {recipe.servings}</span>
+							</div>
+						</div>
+						<div className="flex flex-wrap gap-2 mt-4">
+							{recipe.recipe_tags?.map(({ tags }: { tags: { id: string; name: string } }) => (
+								<Badge key={tags.id} variant="secondary">
+									{tags.name}
+								</Badge>
+							))}
+						</div>
+					</Link>
+				))}
 			</div>
-			<div>
-				<h2 className="font-bold text-2xl mb-4">Next steps</h2>
-			</div>
-		</div>
+		</main>
 	)
 }
