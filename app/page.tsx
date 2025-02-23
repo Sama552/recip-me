@@ -1,14 +1,8 @@
+import { Recipe } from '@/app/types/recipe'
 import { Badge } from '@/components/ui/badge'
-import { Database } from '@/supabase/types/supabase'
 import { createClient } from '@/utils/supabase/server'
 import { Clock, Users } from 'lucide-react'
 import Link from 'next/link'
-
-type RecipeWithTags = Database['public']['Tables']['recipes']['Row'] & {
-	recipe_tags: Array<{
-		tags: Database['public']['Tables']['tags']['Row']
-	}>
-}
 
 export default async function Home() {
 	const supabase = await createClient()
@@ -48,13 +42,14 @@ export default async function Home() {
 			recipe_tags!inner (
 				tags!inner (
 					id,
-					name
+					name,
+					created_at
 				)
 			)
 		`
 		)
 		.order('created_at', { ascending: false })
-		.returns<RecipeWithTags[]>()
+		.returns<Recipe[]>()
 
 	if (error) {
 		console.error('Error fetching recipes:', error)

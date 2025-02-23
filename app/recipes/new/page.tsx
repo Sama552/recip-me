@@ -1,6 +1,12 @@
+import { Tag } from '@/app/types/recipe'
 import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import RecipeForm from '../RecipeForm'
+
+type TagApiResponse = {
+	existingTags: Tag[]
+}
 
 export default async function NewRecipePage() {
 	const supabase = await createClient()
@@ -12,11 +18,14 @@ export default async function NewRecipePage() {
 		redirect('/sign-in')
 	}
 
-	// Fetch existing tags for the dropdown
-	const { data: existingTags } = await supabase
-		.from('tags')
-		.select('id, name, created_at')
-		.order('name')
+	const cookieStore = await cookies()
+	const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/tags`, {
+		headers: {
+			Cookie: cookieStore.toString(),
+		},
+	})
+
+	const { existingTags } = (await response.json()) as TagApiResponse
 
 	return (
 		<main className="flex-1 flex flex-col items-center min-h-[60vh] px-4 py-8 w-full max-w-3xl mx-auto">

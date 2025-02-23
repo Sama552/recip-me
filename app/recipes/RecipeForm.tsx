@@ -1,5 +1,13 @@
 'use client'
 
+import {
+	IngredientFormData,
+	InstructionFormData,
+	Recipe,
+	RecipeFormData,
+	RecipeTagFormData,
+	Tag,
+} from '@/app/types/recipe'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,22 +19,17 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
-import { Database } from '@/supabase/types/supabase'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-type Recipe = Database['public']['Tables']['recipes']['Row']
-type Tag = Database['public']['Tables']['tags']['Row']
-
 interface RecipeFormProps {
-	recipeId?: string
 	existingTags: Tag[]
+	recipe?: Recipe
 }
 
-export default function RecipeForm({ recipeId, existingTags }: RecipeFormProps) {
+export default function RecipeForm({ existingTags, recipe }: RecipeFormProps) {
 	const router = useRouter()
-	const [isLoading, setIsLoading] = useState(!!recipeId)
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
 	// Form state
@@ -41,73 +44,38 @@ export default function RecipeForm({ recipeId, existingTags }: RecipeFormProps) 
 	const [instructions, setInstructions] = useState<string[]>([''])
 	const [selectedTags, setSelectedTags] = useState<Tag[]>([])
 
-	// Fetch recipe data if editing
+	// Initialize form with recipe data if provided
 	useEffect(() => {
-		async function fetchRecipe() {
-			if (!recipeId) return
+		if (recipe) {
+			setTitle(recipe.title)
+			setDescription(recipe.description || '')
+			setPrepTime(recipe.prep_time?.toString() || '')
+			setCookTime(recipe.cook_time?.toString() || '')
+			setServings(recipe.servings?.toString() || '')
 
-			const supabase = createClient()
-			const { data: recipe } = await supabase
-				.from('recipes')
-				.select(
-					`
-          *,
-          ingredients (
-            name,
-            amount,
-            unit,
-            notes
-          ),
-          instructions (
-            step_number,
-            description
-          ),
-          recipe_tags (
-            tags (
-              id,
-              name,
-              created_at
-            )
-          )
-        `
-				)
-				.eq('id', recipeId)
-				.single()
+			// Sort ingredients by name
+			const sortedIngredients = [...(recipe.ingredients || [])].sort((a, b) =>
+				a.name.localeCompare(b.name)
+			)
+			setIngredients(
+				sortedIngredients.map(ing => ({
+					amount: ing.amount?.toString() || '',
+					unit: ing.unit || '',
+					name: ing.name,
+					notes: ing.notes || '',
+				}))
+			)
 
-			if (recipe) {
-				setTitle(recipe.title)
-				setDescription(recipe.description || '')
-				setPrepTime(recipe.prep_time?.toString() || '')
-				setCookTime(recipe.cook_time?.toString() || '')
-				setServings(recipe.servings?.toString() || '')
+			// Sort instructions by step number
+			const sortedInstructions = [...(recipe.instructions || [])].sort(
+				(a, b) => a.step_number - b.step_number
+			)
+			setInstructions(sortedInstructions.map(inst => inst.description))
 
-				// Sort ingredients by name
-				const sortedIngredients = [...(recipe.ingredients || [])].sort((a, b) =>
-					a.name.localeCompare(b.name)
-				)
-				setIngredients(
-					sortedIngredients.map(ing => ({
-						amount: ing.amount?.toString() || '',
-						unit: ing.unit || '',
-						name: ing.name,
-						notes: ing.notes || '',
-					}))
-				)
-
-				// Sort instructions by step number
-				const sortedInstructions = [...(recipe.instructions || [])].sort(
-					(a, b) => a.step_number - b.step_number
-				)
-				setInstructions(sortedInstructions.map(inst => inst.description))
-
-				// Set tags
-				setSelectedTags(recipe.recipe_tags?.map((rt: any) => rt.tags) || [])
-			}
-			setIsLoading(false)
+			// Set tags
+			setSelectedTags(recipe.recipe_tags?.map(rt => rt.tags) || [])
 		}
-
-		fetchRecipe()
-	}, [recipeId])
+	}, [recipe])
 
 	const addIngredient = () => {
 		setIngredients([...ingredients, { amount: '', unit: '', name: '', notes: '' }])
@@ -161,32 +129,32 @@ export default function RecipeForm({ recipeId, existingTags }: RecipeFormProps) 
 			} = await supabase.auth.getUser()
 			if (!user) throw new Error('Not authenticated')
 
-			const recipeData = {
+			const recipeData: RecipeFormData = {
 				title,
 				description,
 				prep_time: prepTime,
 				cook_time: cookTime,
-				servings: parseInt(servings),
+				servings: parseInt(servings) || null,
 				user_id: user.id,
 			}
 
 			let finalRecipeId: string
 
-			if (recipeId) {
+			if (recipe) {
 				// Update existing recipe
 				const { error: recipeError } = await supabase
 					.from('recipes')
 					.update(recipeData)
-					.eq('id', recipeId)
+					.eq('id', recipe.id)
 
 				if (recipeError) throw recipeError
-				finalRecipeId = recipeId
+				finalRecipeId = recipe.id
 
 				// Delete existing related data
 				await Promise.all([
-					supabase.from('ingredients').delete().eq('recipe_id', recipeId),
-					supabase.from('instructions').delete().eq('recipe_id', recipeId),
-					supabase.from('recipe_tags').delete().eq('recipe_id', recipeId),
+					supabase.from('ingredients').delete().eq('recipe_id', recipe.id),
+					supabase.from('instructions').delete().eq('recipe_id', recipe.id),
+					supabase.from('recipe_tags').delete().eq('recipe_id', recipe.id),
 				])
 			} else {
 				// Create new recipe
@@ -202,42 +170,46 @@ export default function RecipeForm({ recipeId, existingTags }: RecipeFormProps) 
 
 			// Insert ingredients
 			if (ingredients.length > 0) {
-				const { error: ingredientsError } = await supabase.from('ingredients').insert(
-					ingredients.map(ing => ({
-						recipe_id: finalRecipeId,
-						amount: ing.amount ? parseFloat(ing.amount) : null,
-						unit: ing.unit || null,
-						name: ing.name,
-						notes: ing.notes || null,
-					}))
-				)
+				const ingredientsData: IngredientFormData[] = ingredients.map(ing => ({
+					recipe_id: finalRecipeId,
+					amount: ing.amount ? parseFloat(ing.amount) : null,
+					unit: ing.unit || null,
+					name: ing.name,
+					notes: ing.notes || null,
+				}))
+
+				const { error: ingredientsError } = await supabase
+					.from('ingredients')
+					.insert(ingredientsData)
 
 				if (ingredientsError) throw ingredientsError
 			}
 
 			// Insert instructions
 			if (instructions.length > 0) {
-				const { error: instructionsError } = await supabase.from('instructions').insert(
-					instructions
-						.filter(instruction => instruction.trim())
-						.map((description, index) => ({
-							recipe_id: finalRecipeId,
-							step_number: index + 1,
-							description,
-						}))
-				)
+				const instructionsData: InstructionFormData[] = instructions
+					.filter(instruction => instruction.trim())
+					.map((description, index) => ({
+						recipe_id: finalRecipeId,
+						step_number: index + 1,
+						description,
+					}))
+
+				const { error: instructionsError } = await supabase
+					.from('instructions')
+					.insert(instructionsData)
 
 				if (instructionsError) throw instructionsError
 			}
 
 			// Insert recipe tags
 			if (selectedTags.length > 0) {
-				const { error: tagsError } = await supabase.from('recipe_tags').insert(
-					selectedTags.map(tag => ({
-						recipe_id: finalRecipeId,
-						tag_id: tag.id,
-					}))
-				)
+				const recipeTagsData: RecipeTagFormData[] = selectedTags.map(tag => ({
+					recipe_id: finalRecipeId,
+					tag_id: tag.id,
+				}))
+
+				const { error: tagsError } = await supabase.from('recipe_tags').insert(recipeTagsData)
 
 				if (tagsError) throw tagsError
 			}
@@ -249,10 +221,6 @@ export default function RecipeForm({ recipeId, existingTags }: RecipeFormProps) 
 		} finally {
 			setIsSubmitting(false)
 		}
-	}
-
-	if (isLoading) {
-		return <div>Loading...</div>
 	}
 
 	return (
@@ -419,10 +387,10 @@ export default function RecipeForm({ recipeId, existingTags }: RecipeFormProps) 
 				</Button>
 				<Button type="submit" disabled={isSubmitting}>
 					{isSubmitting
-						? recipeId
+						? recipe
 							? 'Saving...'
 							: 'Creating...'
-						: recipeId
+						: recipe
 							? 'Save Changes'
 							: 'Create Recipe'}
 				</Button>

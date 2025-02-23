@@ -1,60 +1,44 @@
+import { Recipe, Tag } from '@/app/types/recipe'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Database } from '@/supabase/types/supabase'
 import { createClient } from '@/utils/supabase/server'
 import { ArrowLeft, Clock, Globe, Pencil, Users } from 'lucide-react'
+import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-type RecipeWithDetails = Database['public']['Tables']['recipes']['Row'] & {
-	ingredients: Database['public']['Tables']['ingredients']['Row'][]
-	instructions: Database['public']['Tables']['instructions']['Row'][]
-	recipe_tags: Array<{
-		tags: Database['public']['Tables']['tags']['Row']
-	}>
+type RecipeApiResponse = {
+	recipe: Recipe
+	existingTags: Tag[]
 }
 
 export default async function RecipePage({ params }: { params: Promise<{ id: string }> }) {
-	const supabase = await createClient()
 	const { id } = await params
+	const supabase = await createClient()
 
+	// Get current user for edit permission check
 	const {
 		data: { user },
 	} = await supabase.auth.getUser()
 
-	const { data: recipe, error } = await supabase
-		.from('recipes')
-		.select(
-			`
-			*,
-			ingredients (
-				name,
-				amount,
-				unit,
-				notes
-			),
-			instructions (
-				step_number,
-				description
-			),
-			recipe_tags (
-				tags (
-					id,
-					name
-				)
-			)
-		`
-		)
-		.eq('id', id)
-		.single()
+	// Fetch recipe data from our API endpoint
+	const cookieStore = await cookies()
+	const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/recipes/${id}`, {
+		headers: {
+			Cookie: cookieStore.toString(),
+		},
+	})
 
-	if (error) {
-		console.error('Error fetching recipe:', error)
-	}
-
-	if (!recipe) {
+	if (!response.ok) {
+		if (response.status === 404) {
+			notFound()
+		}
+		// Handle other errors
+		console.error('Error fetching recipe:', await response.text())
 		notFound()
 	}
+
+	const { recipe } = (await response.json()) as RecipeApiResponse
 
 	const canEdit = user?.id === recipe.user_id
 
@@ -108,7 +92,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
 					</div>
 
 					<div className="flex flex-wrap gap-2 mt-4">
-						{recipe.recipe_tags?.map(({ tags }: { tags: { id: string; name: string } }) => (
+						{recipe.recipe_tags?.map(({ tags }: { tags: Tag }) => (
 							<Badge key={tags.id} variant="secondary">
 								{tags.name}
 							</Badge>
@@ -120,8 +104,10 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
 					<h2 className="text-2xl font-semibold mb-4">Ingredients</h2>
 					<ul className="space-y-2">
 						{recipe.ingredients
-							?.sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))
-							.map((ingredient: { name: string; amount: number; unit: string; notes: string }) => (
+							?.sort((a: Recipe['ingredients'][0], b: Recipe['ingredients'][0]) =>
+								a.name.localeCompare(b.name)
+							)
+							.map((ingredient: Recipe['ingredients'][0]) => (
 								<li key={ingredient.name} className="flex items-baseline gap-2">
 									<span className="font-medium">
 										{ingredient.amount} {ingredient.unit}
@@ -140,10 +126,10 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
 					<ol className="space-y-4">
 						{recipe.instructions
 							?.sort(
-								(a: { step_number: number }, b: { step_number: number }) =>
+								(a: Recipe['instructions'][0], b: Recipe['instructions'][0]) =>
 									a.step_number - b.step_number
 							)
-							.map((instruction: { step_number: number; description: string }) => (
+							.map((instruction: Recipe['instructions'][0]) => (
 								<li key={instruction.step_number} className="flex gap-4">
 									<span className="font-medium text-muted-foreground">
 										{instruction.step_number}.
